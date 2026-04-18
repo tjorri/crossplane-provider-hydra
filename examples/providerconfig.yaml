@@ -1,0 +1,24 @@
+apiVersion: hydra.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  adminUrl: "http://hydra-admin.hydra.svc.cluster.local:4445"
+  publicUrl: "http://hydra-public.hydra.svc.cluster.local:4444"
+  # No authentication (Hydra admin API is network-isolated)
+  credentials:
+    source: None
+---
+apiVersion: hydra.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: with-auth
+spec:
+  adminUrl: "https://hydra-admin.example.com"
+  publicUrl: "https://hydra.example.com"
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: hydra-bearer-token
+      key: token
