@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,6 +34,14 @@ const (
 	errUpdate          = "cannot update OAuth2 client"
 	errDelete          = "cannot delete OAuth2 client"
 )
+
+// hydraClient defines the Hydra operations used by this controller.
+type hydraClient interface {
+	GetOAuth2Client(ctx context.Context, id string) (*hydra.OAuth2Client, error)
+	CreateOAuth2Client(ctx context.Context, client hydra.OAuth2Client) (*hydra.OAuth2Client, error)
+	UpdateOAuth2Client(ctx context.Context, id string, client hydra.OAuth2Client) (*hydra.OAuth2Client, error)
+	DeleteOAuth2Client(ctx context.Context, id string) error
+}
 
 // Setup adds a controller that reconciles OAuth2Client managed resources.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
@@ -96,7 +105,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 
 type external struct {
 	kube      client.Client
-	hydra     *hydraclient.HydraClient
+	hydra     hydraClient
 	publicURL string
 }
 
@@ -357,6 +366,8 @@ func isUpToDate(desired v1alpha1.OAuth2ClientParameters, observed *hydra.OAuth2C
 	return cmp.Equal(
 		stripServerFields(generated),
 		stripServerFields(*observed),
+		cmpopts.EquateEmpty(),
+		cmpopts.IgnoreFields(hydra.OAuth2Client{}, "AdditionalProperties"),
 	)
 }
 
