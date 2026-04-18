@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hydra
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hydra
+  namespace: hydra
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hydra
+  template:
+    metadata:
+      labels:
+        app: hydra
+    spec:
+      containers:
+        - name: hydra
+          image: oryd/hydra:v2.2.0
+          command: ["hydra", "serve", "all", "--dev"]
+          env:
+            - name: DSN
+              value: "memory"
+            - name: URLS_SELF_ISSUER
+              value: "http://hydra-public.hydra.svc.cluster.local:4444"
+            - name: URLS_LOGIN
+              value: "http://localhost:3000/login"
+            - name: URLS_CONSENT
+              value: "http://localhost:3000/consent"
+            - name: SECRETS_SYSTEM
+              value: "a-very-secret-system-secret-that-is-at-least-32-chars"
+          ports:
+            - name: public
+              containerPort: 4444
+            - name: admin
+              containerPort: 4445
+          readinessProbe:
+            httpGet:
+              path: /health/alive
+              port: admin
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hydra-admin
+  namespace: hydra
+spec:
+  selector:
+    app: hydra
+  ports:
+    - name: admin
+      port: 4445
+      targetPort: admin
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hydra-public
+  namespace: hydra
+spec:
+  selector:
+    app: hydra
+  ports:
+    - name: public
+      port: 4444
+      targetPort: public

@@ -1,0 +1,46 @@
+apiVersion: hydra.crossplane.io/v1alpha1
+kind: OAuth2Client
+metadata:
+  name: my-app
+  namespace: default
+spec:
+  providerConfigRef:
+    name: default
+  writeConnectionSecretToRef:
+    name: my-app-oauth2-credentials
+    namespace: default
+  forProvider:
+    clientId: "my-app"
+    clientName: "My Application"
+    grantTypes:
+      - authorization_code
+      - refresh_token
+    responseTypes:
+      - code
+    redirectUris:
+      - "https://myapp.example.com/callback"
+    scope: "openid profile email"
+    tokenEndpointAuthMethod: "client_secret_basic"
+    skipConsent: false
+---
+apiVersion: hydra.crossplane.io/v1alpha1
+kind: OAuth2Client
+metadata:
+  name: service-account
+  namespace: default
+spec:
+  providerConfigRef:
+    name: default
+  writeConnectionSecretToRef:
+    name: service-account-credentials
+    namespace: default
+  forProvider:
+    clientId: "service-account"
+    clientName: "Backend Service"
+    grantTypes:
+      - client_credentials
+    responseTypes:
+      - token
+    scope: "openid"
+    tokenEndpointAuthMethod: "client_secret_basic"
+    accessTokenStrategy: "jwt"
