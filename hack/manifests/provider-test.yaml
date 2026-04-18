@@ -1,0 +1,30 @@
+apiVersion: hydra.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  adminUrl: "http://hydra-admin.hydra.svc.cluster.local:4445"
+  publicUrl: "http://hydra-public.hydra.svc.cluster.local:4444"
+  credentials:
+    source: None
+---
+apiVersion: hydra.crossplane.io/v1alpha1
+kind: OAuth2Client
+metadata:
+  name: e2e-test-client
+  namespace: default
+spec:
+  providerConfigRef:
+    name: default
+  writeConnectionSecretToRef:
+    name: e2e-test-client-credentials
+    namespace: default
+  forProvider:
+    clientId: "e2e-test-client"
+    clientName: "E2E Test Client"
+    grantTypes:
+      - client_credentials
+    responseTypes:
+      - token
+    scope: "openid"
+    tokenEndpointAuthMethod: "client_secret_basic"

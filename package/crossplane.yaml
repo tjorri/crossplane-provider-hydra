@@ -1,0 +1,11 @@
+apiVersion: meta.pkg.crossplane.io/v1alpha1
+kind: Provider
+metadata:
+  name: provider-hydra
+  annotations:
+    meta.crossplane.io/maintainer: https://github.com/tjorri/crossplane-provider-hydra
+    meta.crossplane.io/source: https://github.com/tjorri/crossplane-provider-hydra
+    meta.crossplane.io/description: Crossplane provider for Ory Hydra OAuth2 client management
+spec:
+  controller:
+    image: ghcr.io/tjorri/crossplane-provider-hydra-controller:latest

@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  CONTROLLER_IMAGE: ghcr.io/tjorri/crossplane-provider-hydra-controller
+  PACKAGE_IMAGE: ghcr.io/tjorri/crossplane-provider-hydra
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set version from tag
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+
+      # --- Tests ---
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+      - name: Unit tests
+        run: go test -short -race ./...
+
+      # --- Generate CRDs ---
+
+      - name: Install tools
+        run: |
+          go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+          go install github.com/crossplane/crossplane-tools/cmd/angryjet@latest
+
+      - name: Generate CRDs and methods
+        run: make generate
+
+      # --- Controller image ---
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push controller image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ env.CONTROLLER_IMAGE }}:${{ env.VERSION }}
+            ${{ env.CONTROLLER_IMAGE }}:latest
+
+      # --- Crossplane package (xpkg) ---
+
+      - name: Install Crossplane CLI
+        run: |
+          curl -sL "https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh" | sh
+          sudo mv crossplane /usr/local/bin/
+
+      - name: Set controller image in crossplane.yaml
+        run: |
+          sed -i "s|image:.*|image: ${{ env.CONTROLLER_IMAGE }}:${{ env.VERSION }}|" package/crossplane.yaml
+
+      - name: Build xpkg
+        run: |
+          crossplane xpkg build \
+            --package-root=./package \
+            --package-file=./crossplane-provider-hydra-${{ env.VERSION }}.xpkg
+
+      - name: Push xpkg to GHCR
+        run: |
+          crossplane xpkg push \
+            "${{ env.PACKAGE_IMAGE }}:${{ env.VERSION }}" \
+            -f ./crossplane-provider-hydra-${{ env.VERSION }}.xpkg
+          crossplane xpkg push \
+            "${{ env.PACKAGE_IMAGE }}:latest" \
+            -f ./crossplane-provider-hydra-${{ env.VERSION }}.xpkg
+
+      # --- Attach xpkg to GitHub Release ---
+
+      - name: Upload xpkg to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          files: ./crossplane-provider-hydra-${{ env.VERSION }}.xpkg

@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -short -race -coverprofile=coverage.out ./...
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -v -count=1 -timeout=10m ./e2e/...
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go build -o /dev/null ./cmd/provider/
+
+  e2e-kind:
+    name: Kind E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install tools
+        run: |
+          go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+          go install github.com/crossplane/crossplane-tools/cmd/angryjet@latest
+          curl -sL "https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh" | sh
+          sudo mv crossplane /usr/local/bin/
+      - name: Install Kind
+        uses: helm/kind-action@v1
+        with:
+          install_only: true
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+      - name: Run Kind e2e tests
+        run: make test-e2e-kind
+      - name: Dump debug info on failure
+        if: failure()
+        run: |
+          echo "--- Provider logs ---"
+          kubectl -n provider-hydra logs -l app=provider-hydra --tail=100 2>/dev/null || true
+          echo "--- Hydra logs ---"
+          kubectl -n hydra logs -l app=hydra --tail=100 2>/dev/null || true
+          echo "--- OAuth2Client status ---"
+          kubectl get oauth2client -A -o yaml 2>/dev/null || true
+      - name: Teardown
+        if: always()
+        run: make test-e2e-kind-teardown
