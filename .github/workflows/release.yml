@@ -76,6 +76,15 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh" | sh
           sudo mv crossplane /usr/local/bin/
 
+      # `docker/build-push-action` with `push: true` + multi-platform pushes
+      # to the registry directly via buildx and does NOT load the image into
+      # the local Docker daemon. `crossplane xpkg build --embed-runtime-image`
+      # reads the runtime image from the daemon, so we pull the tag back now
+      # that it's in GHCR. The manifest list resolves to the runner's native
+      # arch (linux/amd64) and that single-platform image goes into the daemon.
+      - name: Pull controller image into local daemon
+        run: docker pull ${{ env.CONTROLLER_IMAGE }}:${{ env.VERSION }}
+
       - name: Build xpkg (embeds the controller image as a runtime layer)
         run: |
           crossplane xpkg build \
