@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/tjorri/crossplane-provider-hydra/compare/v1.0.1...v1.0.2) (2026-04-20)
+
+
+### Bug Fixes
+
+* embed controller image into the xpkg as a runtime layer ([#8](https://github.com/tjorri/crossplane-provider-hydra/issues/8)) ([fa7aa08](https://github.com/tjorri/crossplane-provider-hydra/commit/fa7aa087d8d2faa01ff101651f1c793d7865be11))
+
 ## [1.0.1](https://github.com/tjorri/crossplane-provider-hydra/compare/v1.0.0...v1.0.1) (2026-04-18)
 
 
