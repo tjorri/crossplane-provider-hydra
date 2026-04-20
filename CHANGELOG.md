@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/tjorri/crossplane-provider-hydra/compare/v1.0.2...v1.0.3) (2026-04-20)
+
+
+### Bug Fixes
+
+* pull controller image before xpkg build ([6b04939](https://github.com/tjorri/crossplane-provider-hydra/commit/6b049394e8765f6eb58393512f6b898ee0f5600d))
+
 ## [1.0.2](https://github.com/tjorri/crossplane-provider-hydra/compare/v1.0.1...v1.0.2) (2026-04-20)
 
 
