@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.4](https://github.com/tjorri/crossplane-provider-hydra/compare/v1.0.3...v1.0.4) (2026-04-20)
+
+
+### Performance Improvements
+
+* cross-compile controller binary instead of emulating arm64 ([02d6eb8](https://github.com/tjorri/crossplane-provider-hydra/commit/02d6eb8d4888bc7aaece69281e4afebf61e604fc))
+
 ## [1.0.3](https://github.com/tjorri/crossplane-provider-hydra/compare/v1.0.2...v1.0.3) (2026-04-20)
 
 
