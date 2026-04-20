@@ -282,8 +282,8 @@ The publish workflow will:
 
 | Image | Purpose |
 |---|---|
-| `ghcr.io/tjorri/crossplane-provider-hydra:<tag>` | Crossplane package (xpkg) — this is what users reference in `spec.package` |
-| `ghcr.io/tjorri/crossplane-provider-hydra-controller:<tag>` | Controller binary — pulled automatically by Crossplane |
+| `ghcr.io/tjorri/crossplane-provider-hydra:<tag>` | Crossplane package (xpkg) with the controller embedded as a runtime layer. This is what users reference in `spec.package`; no additional pull is required. |
+| `ghcr.io/tjorri/crossplane-provider-hydra-controller:<tag>` | Controller image. Published for transparency and for out-of-cluster dev workflows; installing the provider via the xpkg above is enough — you do not need to reference this image directly. |
 
 ## License
 

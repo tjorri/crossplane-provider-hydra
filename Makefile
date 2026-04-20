@@ -43,10 +43,18 @@ docker-push: docker-build
 	docker push $(CONTROLLER_IMAGE):$(VERSION)
 
 .PHONY: xpkg-build
-xpkg-build: generate
-	@sed 's|image:.*|image: $(CONTROLLER_IMAGE):$(VERSION)|' package/crossplane.yaml > package/crossplane.yaml.tmp \
-		&& mv package/crossplane.yaml.tmp package/crossplane.yaml
-	crossplane xpkg build --package-root=./package --package-file=./$(PROJECT_NAME)-$(VERSION).xpkg
+# Builds the Crossplane package with the controller image embedded as a
+# runtime layer via `--embed-runtime-image`. The resulting xpkg is
+# self-contained: Crossplane's package manager extracts the embedded
+# controller and runs it directly, so users only need to apply a Provider
+# CR pointing at the xpkg — no DeploymentRuntimeConfig override.
+#
+# Requires the controller image to exist locally (docker-build target).
+xpkg-build: generate docker-build
+	crossplane xpkg build \
+		--package-root=./package \
+		--embed-runtime-image=$(CONTROLLER_IMAGE):$(VERSION) \
+		--package-file=./$(PROJECT_NAME)-$(VERSION).xpkg
 
 .PHONY: test-e2e-kind
 test-e2e-kind:
