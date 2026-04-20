@@ -76,14 +76,11 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh" | sh
           sudo mv crossplane /usr/local/bin/
 
-      - name: Set controller image in crossplane.yaml
-        run: |
-          sed -i "s|image:.*|image: ${{ env.CONTROLLER_IMAGE }}:${{ env.VERSION }}|" package/crossplane.yaml
-
-      - name: Build xpkg
+      - name: Build xpkg (embeds the controller image as a runtime layer)
         run: |
           crossplane xpkg build \
             --package-root=./package \
+            --embed-runtime-image=${{ env.CONTROLLER_IMAGE }}:${{ env.VERSION }} \
             --package-file=./crossplane-provider-hydra-${{ env.VERSION }}.xpkg
 
       - name: Push xpkg to GHCR

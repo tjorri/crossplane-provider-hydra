@@ -6,6 +6,9 @@ metadata:
     meta.crossplane.io/maintainer: https://github.com/tjorri/crossplane-provider-hydra
     meta.crossplane.io/source: https://github.com/tjorri/crossplane-provider-hydra
     meta.crossplane.io/description: Crossplane provider for Ory Hydra OAuth2 client management
-spec:
-  controller:
-    image: ghcr.io/tjorri/crossplane-provider-hydra-controller:latest
+# The controller image is NOT declared here. It is embedded into the
+# xpkg at build time via `crossplane xpkg build --embed-runtime-image=...`
+# (see Makefile + .github/workflows/release.yml). `meta.pkg.crossplane.io/v1alpha1`
+# drops `spec.controller.image` silently during `xpkg build`, so setting it
+# here would be a no-op.
+spec: {}
