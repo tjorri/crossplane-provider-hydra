@@ -68,6 +68,11 @@ jobs:
           tags: |
             ${{ env.CONTROLLER_IMAGE }}:${{ env.VERSION }}
             ${{ env.CONTROLLER_IMAGE }}:latest
+          # Persist the go-mod-download layer and the build stage cache
+          # across releases. Without it, every release repaid the ~40s
+          # `go mod download` step even when go.sum hadn't changed.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       # --- Crossplane package (xpkg) ---
 
