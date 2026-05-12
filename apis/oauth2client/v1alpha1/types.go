@@ -271,7 +271,3 @@ type OAuth2ClientList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []OAuth2Client `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&OAuth2Client{}, &OAuth2ClientList{})
-}
