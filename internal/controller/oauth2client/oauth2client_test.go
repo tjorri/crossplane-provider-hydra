@@ -313,7 +313,7 @@ func TestIsUpToDate(t *testing.T) {
 	})
 }
 
-func TestStripServerFields(t *testing.T) {
+func TestNormalizeForCompare(t *testing.T) {
 	now := time.Now()
 	c := hydra.OAuth2Client{
 		ClientId:                ptr("keep"),
@@ -324,38 +324,147 @@ func TestStripServerFields(t *testing.T) {
 		UpdatedAt:               &now,
 		RegistrationAccessToken: ptr("strip"),
 		RegistrationClientUri:   ptr("strip"),
+		// Hydra echoes unset URI/identifier strings as pointer-to-empty.
+		ClientUri: ptr(""),
+		LogoUri:   ptr(""),
+		PolicyUri: ptr(""),
+		TosUri:    ptr(""),
+		Owner:     ptr(""),
+		// Hydra echoes unset Jwks/Metadata as an empty object.
+		Jwks:     map[string]interface{}{},
+		Metadata: map[string]interface{}{},
 	}
 
-	stripped := stripServerFields(c)
+	got := normalizeForCompare(c)
 
-	if stripped.ClientId == nil || *stripped.ClientId != "keep" {
+	if got.ClientId == nil || *got.ClientId != "keep" {
 		t.Error("ClientId should be preserved")
 	}
-	if stripped.ClientName == nil || *stripped.ClientName != "keep" {
+	if got.ClientName == nil || *got.ClientName != "keep" {
 		t.Error("ClientName should be preserved")
 	}
-	if stripped.ClientSecret != nil {
-		t.Error("ClientSecret should be stripped")
+	for _, f := range []struct {
+		name string
+		p    *string
+	}{
+		{"ClientSecret", got.ClientSecret},
+		{"RegistrationAccessToken", got.RegistrationAccessToken},
+		{"RegistrationClientUri", got.RegistrationClientUri},
+		{"ClientUri", got.ClientUri},
+		{"LogoUri", got.LogoUri},
+		{"PolicyUri", got.PolicyUri},
+		{"TosUri", got.TosUri},
+		{"Owner", got.Owner},
+	} {
+		if f.p != nil {
+			t.Errorf("%s should be normalized to nil, got %v", f.name, f.p)
+		}
 	}
-	if stripped.ClientSecretExpiresAt != nil {
-		t.Error("ClientSecretExpiresAt should be stripped")
+	if got.ClientSecretExpiresAt != nil || got.CreatedAt != nil || got.UpdatedAt != nil {
+		t.Error("server-set fields should be stripped")
 	}
-	if stripped.CreatedAt != nil {
-		t.Error("CreatedAt should be stripped")
+	if got.Jwks != nil {
+		t.Errorf("empty Jwks map should normalize to nil, got %v", got.Jwks)
 	}
-	if stripped.UpdatedAt != nil {
-		t.Error("UpdatedAt should be stripped")
-	}
-	if stripped.RegistrationAccessToken != nil {
-		t.Error("RegistrationAccessToken should be stripped")
-	}
-	if stripped.RegistrationClientUri != nil {
-		t.Error("RegistrationClientUri should be stripped")
+	if got.Metadata != nil {
+		t.Errorf("empty Metadata map should normalize to nil, got %v", got.Metadata)
 	}
 
 	// Original should be unmodified.
 	if c.ClientSecret == nil {
 		t.Error("original ClientSecret should not be modified")
+	}
+}
+
+func TestIsUpToDate_HydraDefaults(t *testing.T) {
+	// Spec mirrors examples/oauth2client.yaml (service-account variant) — the
+	// user does not set SubjectType, UserinfoSignedResponseAlg, SkipConsent,
+	// Owner, LogoUri, etc.; Hydra fills those in on its side. Without
+	// normalization + late-init we'd see drift on every Observe and the
+	// controller would Update forever.
+	spec := v1alpha1.OAuth2ClientParameters{
+		ClientID:                ptr("service-account"),
+		ClientName:              ptr("Backend Service"),
+		GrantTypes:              []string{"client_credentials"},
+		ResponseTypes:           []string{"token"},
+		Scope:                   ptr("openid"),
+		TokenEndpointAuthMethod: ptr("client_secret_basic"),
+		AccessTokenStrategy:     ptr("jwt"),
+	}
+
+	// After Observe runs lateInitFromHydra, these fields end up in spec.
+	specAfterLateInit := spec
+	specAfterLateInit.SubjectType = ptr("public")
+	specAfterLateInit.UserinfoSignedResponseAlg = ptr("none")
+	specAfterLateInit.SkipConsent = ptr(false)
+
+	observed := &hydra.OAuth2Client{
+		ClientId:                  ptr("service-account"),
+		ClientName:                ptr("Backend Service"),
+		GrantTypes:                []string{"client_credentials"},
+		ResponseTypes:             []string{"token"},
+		Scope:                     ptr("openid"),
+		TokenEndpointAuthMethod:   ptr("client_secret_basic"),
+		AccessTokenStrategy:       ptr("jwt"),
+		SubjectType:               ptr("public"),
+		UserinfoSignedResponseAlg: ptr("none"),
+		SkipConsent:               ptr(false),
+		// Hydra's empty-echo defaults.
+		ClientUri: ptr(""),
+		LogoUri:   ptr(""),
+		PolicyUri: ptr(""),
+		TosUri:    ptr(""),
+		Owner:     ptr(""),
+		Jwks:      map[string]interface{}{},
+		Metadata:  map[string]interface{}{},
+	}
+
+	if !isUpToDate(specAfterLateInit, observed) {
+		t.Error("expected up-to-date once late-init has populated server defaults")
+	}
+}
+
+func TestLateInitFromHydra(t *testing.T) {
+	p := v1alpha1.OAuth2ClientParameters{}
+	observed := &hydra.OAuth2Client{
+		ClientId:                  ptr("auto-generated"),
+		SubjectType:               ptr("public"),
+		UserinfoSignedResponseAlg: ptr("none"),
+		SkipConsent:               ptr(false),
+		AccessTokenStrategy:       ptr("opaque"),
+	}
+
+	lateInitFromHydra(&p, observed)
+
+	if p.ClientID == nil || *p.ClientID != "auto-generated" {
+		t.Error("ClientID should be late-initialized")
+	}
+	if p.SubjectType == nil || *p.SubjectType != "public" {
+		t.Error("SubjectType should be late-initialized")
+	}
+	if p.UserinfoSignedResponseAlg == nil || *p.UserinfoSignedResponseAlg != "none" {
+		t.Error("UserinfoSignedResponseAlg should be late-initialized")
+	}
+	if p.SkipConsent == nil || *p.SkipConsent {
+		t.Error("SkipConsent should be late-initialized to false")
+	}
+	if p.AccessTokenStrategy == nil || *p.AccessTokenStrategy != "opaque" {
+		t.Error("AccessTokenStrategy should be late-initialized")
+	}
+
+	// User-set values must not be overwritten.
+	pSet := v1alpha1.OAuth2ClientParameters{
+		ClientID:                  ptr("user-set"),
+		SubjectType:               ptr("pairwise"),
+		UserinfoSignedResponseAlg: ptr("RS256"),
+		SkipConsent:               ptr(true),
+		AccessTokenStrategy:       ptr("jwt"),
+	}
+	lateInitFromHydra(&pSet, observed)
+	if *pSet.ClientID != "user-set" || *pSet.SubjectType != "pairwise" ||
+		*pSet.UserinfoSignedResponseAlg != "RS256" || !*pSet.SkipConsent ||
+		*pSet.AccessTokenStrategy != "jwt" {
+		t.Error("user-set values must not be overwritten by lateInit")
 	}
 }
 
