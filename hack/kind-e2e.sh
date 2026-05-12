@@ -237,8 +237,15 @@ log "Connection secret verified: client_id=${CLIENT_ID}"
 
 # Delete the OAuth2Client FIRST — it needs the ProviderConfig to connect to
 # Hydra and delete the external resource via its finalizer.
+#
+# Use --wait=false so the request is fire-and-forget; the wait_for that
+# follows confirms removal. Blocking with --timeout=30s races Crossplane's
+# 30s creationGracePeriod (Observe returning ResourceExists=false right
+# after Create succeeded won't proceed to finalizer removal until the
+# grace period expires), which is fine for this test but can exceed any
+# 30s kubectl window when create and delete happen seconds apart.
 log "Deleting OAuth2Client..."
-kubectl delete oauth2client e2e-test-client --timeout=30s --ignore-not-found
+kubectl delete oauth2client e2e-test-client --wait=false --ignore-not-found
 
 wait_for "OAuth2Client deleted" \
   bash -c '! kubectl get oauth2client e2e-test-client 2>/dev/null'
