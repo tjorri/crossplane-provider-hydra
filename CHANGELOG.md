@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.5](https://github.com/tjorri/crossplane-provider-hydra/compare/v1.0.4...v1.0.5) (2026-05-12)
+
+
+### Bug Fixes
+
+* stop OAuth2Client reconcile loop from Hydra server-side defaults ([#16](https://github.com/tjorri/crossplane-provider-hydra/issues/16)) ([736605b](https://github.com/tjorri/crossplane-provider-hydra/commit/736605bcd302b5352ce15e395d7782ede8b8ca93))
+
 ## [1.0.4](https://github.com/tjorri/crossplane-provider-hydra/compare/v1.0.3...v1.0.4) (2026-04-20)
 
 
