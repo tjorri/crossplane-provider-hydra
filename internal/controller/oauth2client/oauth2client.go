@@ -130,9 +130,7 @@ func (e *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 	cr.Status.AtProvider = observationFromHydra(observed)
 
-	if cr.Spec.ForProvider.ClientID == nil && observed.ClientId != nil {
-		cr.Spec.ForProvider.ClientID = observed.ClientId
-	}
+	lateInitFromHydra(&cr.Spec.ForProvider, observed)
 
 	upToDate := isUpToDate(cr.Spec.ForProvider, observed)
 	cr.SetConditions(xpv1.Available())
@@ -359,27 +357,85 @@ func observationFromHydra(c *hydra.OAuth2Client) v1alpha1.OAuth2ClientObservatio
 }
 
 // isUpToDate checks if the desired spec matches the observed Hydra state.
-// Server-set fields are ignored.
+// Server-set fields are ignored and Hydra's empty-value echoes are normalized
+// on both sides so they don't trigger false drift.
 func isUpToDate(desired v1alpha1.OAuth2ClientParameters, observed *hydra.OAuth2Client) bool {
 	generated := specToHydra(desired)
 
 	return cmp.Equal(
-		stripServerFields(generated),
-		stripServerFields(*observed),
+		normalizeForCompare(generated),
+		normalizeForCompare(*observed),
 		cmpopts.EquateEmpty(),
 		cmpopts.IgnoreFields(hydra.OAuth2Client{}, "AdditionalProperties"),
 	)
 }
 
-// stripServerFields zeroes out fields that Hydra sets and manages internally.
-func stripServerFields(c hydra.OAuth2Client) hydra.OAuth2Client {
+// normalizeForCompare zeroes out server-managed fields and normalizes Hydra's
+// empty-value echoes (e.g. *"" for unset URI strings, empty map for unset
+// Jwks/Metadata) so equality reflects real drift.
+func normalizeForCompare(c hydra.OAuth2Client) hydra.OAuth2Client {
+	// Server-managed fields.
 	c.ClientSecret = nil
 	c.ClientSecretExpiresAt = nil
 	c.CreatedAt = nil
 	c.UpdatedAt = nil
 	c.RegistrationAccessToken = nil
 	c.RegistrationClientUri = nil
+
+	// Hydra serializes unset *string URI/identifier fields as pointer-to-empty
+	// rather than null; collapse those to nil so they match an unset spec.
+	c.ClientUri = nilIfEmptyString(c.ClientUri)
+	c.LogoUri = nilIfEmptyString(c.LogoUri)
+	c.PolicyUri = nilIfEmptyString(c.PolicyUri)
+	c.TosUri = nilIfEmptyString(c.TosUri)
+	c.Owner = nilIfEmptyString(c.Owner)
+	c.BackchannelLogoutUri = nilIfEmptyString(c.BackchannelLogoutUri)
+	c.FrontchannelLogoutUri = nilIfEmptyString(c.FrontchannelLogoutUri)
+	c.SectorIdentifierUri = nilIfEmptyString(c.SectorIdentifierUri)
+	c.JwksUri = nilIfEmptyString(c.JwksUri)
+	c.RequestObjectSigningAlg = nilIfEmptyString(c.RequestObjectSigningAlg)
+	c.TokenEndpointAuthSigningAlg = nilIfEmptyString(c.TokenEndpointAuthSigningAlg)
+
+	// Hydra echoes unset Jwks/Metadata as an empty object rather than null.
+	c.Jwks = nilIfEmptyMap(c.Jwks)
+	c.Metadata = nilIfEmptyMap(c.Metadata)
 	return c
+}
+
+func nilIfEmptyString(p *string) *string {
+	if p == nil || *p == "" {
+		return nil
+	}
+	return p
+}
+
+func nilIfEmptyMap(v interface{}) interface{} {
+	if m, ok := v.(map[string]interface{}); ok && len(m) == 0 {
+		return nil
+	}
+	return v
+}
+
+// lateInitFromHydra copies server-defaulted scalar fields into spec when the
+// user did not set them, so subsequent reconciles compare like-for-like. Hydra
+// fills these on create (e.g. SubjectType="public") with non-empty defaults
+// that normalization can't collapse.
+func lateInitFromHydra(p *v1alpha1.OAuth2ClientParameters, observed *hydra.OAuth2Client) {
+	if p.ClientID == nil && observed.ClientId != nil {
+		p.ClientID = observed.ClientId
+	}
+	if p.SubjectType == nil && observed.SubjectType != nil {
+		p.SubjectType = observed.SubjectType
+	}
+	if p.UserinfoSignedResponseAlg == nil && observed.UserinfoSignedResponseAlg != nil {
+		p.UserinfoSignedResponseAlg = observed.UserinfoSignedResponseAlg
+	}
+	if p.SkipConsent == nil && observed.SkipConsent != nil {
+		p.SkipConsent = observed.SkipConsent
+	}
+	if p.AccessTokenStrategy == nil && observed.AccessTokenStrategy != nil {
+		p.AccessTokenStrategy = observed.AccessTokenStrategy
+	}
 }
 
 var _ managed.ExternalClient = &external{}
