@@ -7,8 +7,9 @@ package v1alpha1
 import (
 	"reflect"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
 // Package type metadata.
@@ -22,7 +23,10 @@ var (
 	SchemeGroupVersion = schema.GroupVersion{Group: Group, Version: Version}
 
 	// SchemeBuilder is used to add go types to the GroupVersionResource scheme.
-	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+
+	// AddToScheme adds the types in this group-version to the given scheme.
+	AddToScheme = SchemeBuilder.AddToScheme
 
 	// OAuth2ClientKind is the kind of the OAuth2Client resource.
 	OAuth2ClientKind = reflect.TypeOf(OAuth2Client{}).Name()
@@ -36,3 +40,12 @@ var (
 	// OAuth2ClientGroupVersionKind is the group, version, and kind of the OAuth2Client resource.
 	OAuth2ClientGroupVersionKind = SchemeGroupVersion.WithKind(OAuth2ClientKind)
 )
+
+func addKnownTypes(scheme *runtime.Scheme) error {
+	scheme.AddKnownTypes(SchemeGroupVersion,
+		&OAuth2Client{},
+		&OAuth2ClientList{},
+	)
+	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
+	return nil
+}

@@ -272,6 +272,3 @@ type OAuth2ClientList struct {
 	Items           []OAuth2Client `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&OAuth2Client{}, &OAuth2ClientList{})
-}
