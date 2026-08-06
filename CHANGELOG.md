@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.6](https://github.com/tjorri/crossplane-provider-hydra/compare/v1.0.5...v1.0.6) (2026-08-06)
+
+
+### Bug Fixes
+
+* surface Hydra API error detail and persist late-initialized fields ([#31](https://github.com/tjorri/crossplane-provider-hydra/issues/31)) ([0e2932f](https://github.com/tjorri/crossplane-provider-hydra/commit/0e2932f408ca162055f2e970616f78ca071494b8))
+
 ## [1.0.5](https://github.com/tjorri/crossplane-provider-hydra/compare/v1.0.4...v1.0.5) (2026-05-12)
 
 
