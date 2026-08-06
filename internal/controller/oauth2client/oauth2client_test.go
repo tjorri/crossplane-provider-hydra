@@ -434,7 +434,9 @@ func TestLateInitFromHydra(t *testing.T) {
 		AccessTokenStrategy:       ptr("opaque"),
 	}
 
-	lateInitFromHydra(&p, observed)
+	if !lateInitFromHydra(&p, observed) {
+		t.Error("should report a change when fields are filled")
+	}
 
 	if p.ClientID == nil || *p.ClientID != "auto-generated" {
 		t.Error("ClientID should be late-initialized")
@@ -460,11 +462,55 @@ func TestLateInitFromHydra(t *testing.T) {
 		SkipConsent:               ptr(true),
 		AccessTokenStrategy:       ptr("jwt"),
 	}
-	lateInitFromHydra(&pSet, observed)
+	if lateInitFromHydra(&pSet, observed) {
+		t.Error("should not report a change when every field is already set")
+	}
 	if *pSet.ClientID != "user-set" || *pSet.SubjectType != "pairwise" ||
 		*pSet.UserinfoSignedResponseAlg != "RS256" || !*pSet.SkipConsent ||
 		*pSet.AccessTokenStrategy != "jwt" {
 		t.Error("user-set values must not be overwritten by lateInit")
+	}
+
+	// Second pass over an already-filled spec must report no change, which is
+	// what lets the reconciler stop persisting and start recording status.
+	if lateInitFromHydra(&p, observed) {
+		t.Error("late-init must converge: second pass should report no change")
+	}
+}
+
+// Observe must pass the late-init result through, since that is what makes
+// the reconciler persist the spec. Reporting false while mutating the spec
+// silently drops the defaults.
+func TestObserve_ReportsLateInitialized(t *testing.T) {
+	e := &external{hydra: &mockHydra{
+		getFn: func(_ context.Context, _ string) (*hydra.OAuth2Client, error) {
+			return &hydra.OAuth2Client{
+				ClientId:            ptr("test-client"),
+				ClientName:          ptr("Test Client"),
+				GrantTypes:          []string{"client_credentials"},
+				Scope:               ptr("openid"),
+				SubjectType:         ptr("public"),
+				AccessTokenStrategy: ptr("opaque"),
+			}, nil
+		},
+	}}
+
+	cr := newTestCR("test", "test-client")
+	obs, err := e.Observe(context.Background(), cr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !obs.ResourceLateInitialized {
+		t.Error("first Observe filled server defaults but did not report ResourceLateInitialized")
+	}
+
+	// Everything is filled now, so the next Observe must report false.
+	obs, err = e.Observe(context.Background(), cr)
+	if err != nil {
+		t.Fatalf("unexpected error on second observe: %v", err)
+	}
+	if obs.ResourceLateInitialized {
+		t.Error("second Observe should not report late-initialization")
 	}
 }
 

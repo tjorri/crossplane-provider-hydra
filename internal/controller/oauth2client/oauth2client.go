@@ -130,14 +130,15 @@ func (e *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 	cr.Status.AtProvider = observationFromHydra(observed)
 
-	lateInitFromHydra(&cr.Spec.ForProvider, observed)
+	lateInitialized := lateInitFromHydra(&cr.Spec.ForProvider, observed)
 
 	upToDate := isUpToDate(cr.Spec.ForProvider, observed)
 	cr.SetConditions(xpv1.Available())
 
 	return managed.ExternalObservation{
-		ResourceExists:   true,
-		ResourceUpToDate: upToDate,
+		ResourceExists:          true,
+		ResourceUpToDate:        upToDate,
+		ResourceLateInitialized: lateInitialized,
 	}, nil
 }
 
@@ -420,22 +421,36 @@ func nilIfEmptyMap(v interface{}) interface{} {
 // user did not set them, so subsequent reconciles compare like-for-like. Hydra
 // fills these on create (e.g. SubjectType="public") with non-empty defaults
 // that normalization can't collapse.
-func lateInitFromHydra(p *v1alpha1.OAuth2ClientParameters, observed *hydra.OAuth2Client) {
+//
+// Reports whether it changed anything. Observe passes that back as
+// ExternalObservation.ResourceLateInitialized, which is what makes the
+// reconciler persist the spec — without it the defaults are recomputed in
+// memory on every Observe and never reach the stored resource. It settles
+// after one pass: the second Observe finds nothing to fill and returns false,
+// which is also what lets status updates persist.
+func lateInitFromHydra(p *v1alpha1.OAuth2ClientParameters, observed *hydra.OAuth2Client) bool {
+	changed := false
 	if p.ClientID == nil && observed.ClientId != nil {
 		p.ClientID = observed.ClientId
+		changed = true
 	}
 	if p.SubjectType == nil && observed.SubjectType != nil {
 		p.SubjectType = observed.SubjectType
+		changed = true
 	}
 	if p.UserinfoSignedResponseAlg == nil && observed.UserinfoSignedResponseAlg != nil {
 		p.UserinfoSignedResponseAlg = observed.UserinfoSignedResponseAlg
+		changed = true
 	}
 	if p.SkipConsent == nil && observed.SkipConsent != nil {
 		p.SkipConsent = observed.SkipConsent
+		changed = true
 	}
 	if p.AccessTokenStrategy == nil && observed.AccessTokenStrategy != nil {
 		p.AccessTokenStrategy = observed.AccessTokenStrategy
+		changed = true
 	}
+	return changed
 }
 
 var _ managed.ExternalClient = &external{}
