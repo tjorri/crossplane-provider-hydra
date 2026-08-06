@@ -3,7 +3,6 @@ package clients
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 
 	hydra "github.com/ory/hydra-client-go/v2"
@@ -38,37 +37,25 @@ func (c *HydraClient) GetOAuth2Client(ctx context.Context, id string) (*hydra.OA
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to get OAuth2 client %q: %w", id, err)
+		return nil, apiError(fmt.Sprintf("failed to get OAuth2 client %q", id), err)
 	}
 	return client, nil
 }
 
 // CreateOAuth2Client creates a new OAuth2 client.
 func (c *HydraClient) CreateOAuth2Client(ctx context.Context, client hydra.OAuth2Client) (*hydra.OAuth2Client, error) {
-	created, resp, err := c.api.OAuth2API.CreateOAuth2Client(ctx).OAuth2Client(client).Execute()
+	created, _, err := c.api.OAuth2API.CreateOAuth2Client(ctx).OAuth2Client(client).Execute()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create OAuth2 client: %w: %s", err, readBody(resp))
+		return nil, apiError("failed to create OAuth2 client", err)
 	}
 	return created, nil
-}
-
-func readBody(resp *http.Response) string {
-	if resp == nil || resp.Body == nil {
-		return ""
-	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort read for error messages
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return ""
-	}
-	return string(b)
 }
 
 // UpdateOAuth2Client replaces an existing OAuth2 client.
 func (c *HydraClient) UpdateOAuth2Client(ctx context.Context, id string, client hydra.OAuth2Client) (*hydra.OAuth2Client, error) {
 	updated, _, err := c.api.OAuth2API.SetOAuth2Client(ctx, id).OAuth2Client(client).Execute()
 	if err != nil {
-		return nil, fmt.Errorf("failed to update OAuth2 client %q: %w", id, err)
+		return nil, apiError(fmt.Sprintf("failed to update OAuth2 client %q", id), err)
 	}
 	return updated, nil
 }
@@ -80,7 +67,7 @@ func (c *HydraClient) DeleteOAuth2Client(ctx context.Context, id string) error {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return nil
 		}
-		return fmt.Errorf("failed to delete OAuth2 client %q: %w", id, err)
+		return apiError(fmt.Sprintf("failed to delete OAuth2 client %q", id), err)
 	}
 	return nil
 }
