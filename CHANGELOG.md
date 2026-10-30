@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0](https://github.com/tjorri/crossplane-provider-hydra/compare/v1.0.6...v1.1.0) (2026-10-30)
+
+
+### Features
+
+* publish multi-arch (amd64/arm64) provider package ([88d48cf](https://github.com/tjorri/crossplane-provider-hydra/commit/88d48cf01c2ba0cb4c1d3eaf086e665031b85fac))
+
+
+### Bug Fixes
+
+* build from maintained, digest-pinned base images ([3706151](https://github.com/tjorri/crossplane-provider-hydra/commit/37061517dcd2dacfb407c2afff739bfc29fc8a69))
+* **deps:** bump golang ([e684ada](https://github.com/tjorri/crossplane-provider-hydra/commit/e684ada80f4d9a83ff58b2b3016347e85ef2c672))
+* **deps:** bump k8s.io/api from 0.37.0 to 0.37.1 in the kubernetes group ([82ec98b](https://github.com/tjorri/crossplane-provider-hydra/commit/82ec98b27ddd7d6af2c66863428c03e6f5a3e3f2))
+
 ## [1.0.6](https://github.com/tjorri/crossplane-provider-hydra/compare/v1.0.5...v1.0.6) (2026-08-06)
 
 
