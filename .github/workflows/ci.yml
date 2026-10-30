@@ -56,9 +56,50 @@ jobs:
           go-version-file: go.mod
       - run: go build -o /dev/null ./cmd/provider/
 
-  e2e-kind:
-    name: Kind E2E Tests
+  # Runs the release workflow's packaging steps against a throwaway local
+  # registry, so a broken multi-arch xpkg build fails here instead of at
+  # release time.
+  xpkg:
+    name: Multi-arch Package
     runs-on: ubuntu-latest
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
+    env:
+      PLATFORMS: linux/amd64,linux/arm64
+      VERSION: v0.0.0-ci
+      PACKAGE_REF: localhost:5000/crossplane-provider-hydra:v0.0.0-ci
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Install tools
+        run: |
+          go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+          go install github.com/crossplane/crossplane-tools/cmd/angryjet@latest
+          go install github.com/google/go-containerregistry/cmd/crane@latest
+          curl -sL "https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh" | sh
+          sudo mv crossplane /usr/local/bin/
+      - uses: docker/setup-buildx-action@v4
+      - name: Build per-platform xpkgs
+        run: make xpkg-build-multiarch
+      - name: Push to local registry and verify platforms
+        run: make xpkg-push-multiarch xpkg-verify-multiarch
+
+  e2e-kind:
+    name: Kind E2E Tests (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7

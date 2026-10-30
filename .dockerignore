@@ -1,0 +1,10 @@
+# Keep build outputs out of the build context. The Dockerfile's `COPY . .`
+# would otherwise copy them into the build stage, so each per-platform build
+# in `make xpkg-build-multiarch` would upload the previous platform's
+# controller tarball and xpkg, and miss the layer cache of the release's
+# controller image build. `.git` changes on every git command and would bust
+# that cache too; the build image has no git, so Go never stamps VCS info.
+.git/
+_output/
+bin/
+*.xpkg

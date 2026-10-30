@@ -8,7 +8,9 @@ metadata:
     meta.crossplane.io/description: Crossplane provider for Ory Hydra OAuth2 client management
 # The controller image is NOT declared here. It is embedded into the
 # xpkg at build time via `crossplane xpkg build --embed-runtime-image=...`
-# (see Makefile + .github/workflows/release.yml). `meta.pkg.crossplane.io/v1alpha1`
+# (`make xpkg-build`) or `--embed-runtime-image-tarball=...`, one xpkg per
+# platform (`make xpkg-build-multiarch`, used by
+# .github/workflows/release.yml). `meta.pkg.crossplane.io/v1alpha1`
 # drops `spec.controller.image` silently during `xpkg build`, so setting it
 # here would be a no-op.
 spec: {}

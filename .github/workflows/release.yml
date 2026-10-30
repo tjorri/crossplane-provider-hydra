@@ -12,6 +12,8 @@ permissions:
 env:
   CONTROLLER_IMAGE: ghcr.io/tjorri/crossplane-provider-hydra-controller
   PACKAGE_IMAGE: ghcr.io/tjorri/crossplane-provider-hydra
+  # Also read by the Makefile's xpkg-*-multiarch targets.
+  PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
   release:
@@ -64,7 +66,7 @@ jobs:
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ env.PLATFORMS }}
           tags: |
             ${{ env.CONTROLLER_IMAGE }}:${{ env.VERSION }}
             ${{ env.CONTROLLER_IMAGE }}:latest
@@ -76,40 +78,34 @@ jobs:
 
       # --- Crossplane package (xpkg) ---
 
-      - name: Install Crossplane CLI
+      - name: Install Crossplane CLI and crane
         run: |
           curl -sL "https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh" | sh
           sudo mv crossplane /usr/local/bin/
+          go install github.com/google/go-containerregistry/cmd/crane@latest
 
-      # `docker/build-push-action` with `push: true` + multi-platform pushes
-      # to the registry directly via buildx and does NOT load the image into
-      # the local Docker daemon. `crossplane xpkg build --embed-runtime-image`
-      # reads the runtime image from the daemon, so we pull the tag back now
-      # that it's in GHCR. The manifest list resolves to the runner's native
-      # arch (linux/amd64) and that single-platform image goes into the daemon.
-      - name: Pull controller image into local daemon
-        run: docker pull ${{ env.CONTROLLER_IMAGE }}:${{ env.VERSION }}
+      # One xpkg per platform, each embedding that platform's controller as
+      # its runtime. The per-platform builds run on the same buildx builder
+      # as the controller image step above, so they hit its layer cache.
+      - name: Build per-platform xpkgs
+        run: make xpkg-build-multiarch
 
-      - name: Build xpkg (embeds the controller image as a runtime layer)
+      # `xpkg push` with several files pushes each by digest and tags an OCI
+      # image index referencing them, so `spec.package: ...:<tag>` resolves
+      # to the node's platform. `crane tag` points `latest` at the same index.
+      # PACKAGE_REF is passed explicitly so the push, the verify and the tag
+      # all use this workflow's PACKAGE_IMAGE rather than the Makefile's.
+      - name: Push multi-arch xpkg to GHCR
+        env:
+          PACKAGE_REF: ${{ env.PACKAGE_IMAGE }}:${{ env.VERSION }}
         run: |
-          crossplane xpkg build \
-            --package-root=./package \
-            --embed-runtime-image=${{ env.CONTROLLER_IMAGE }}:${{ env.VERSION }} \
-            --package-file=./crossplane-provider-hydra-${{ env.VERSION }}.xpkg
+          make xpkg-push-multiarch xpkg-verify-multiarch
+          crane tag "$PACKAGE_REF" latest
 
-      - name: Push xpkg to GHCR
-        run: |
-          crossplane xpkg push \
-            "${{ env.PACKAGE_IMAGE }}:${{ env.VERSION }}" \
-            -f ./crossplane-provider-hydra-${{ env.VERSION }}.xpkg
-          crossplane xpkg push \
-            "${{ env.PACKAGE_IMAGE }}:latest" \
-            -f ./crossplane-provider-hydra-${{ env.VERSION }}.xpkg
+      # --- Attach xpkgs to GitHub Release ---
 
-      # --- Attach xpkg to GitHub Release ---
-
-      - name: Upload xpkg to release
+      - name: Upload xpkgs to release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.VERSION }}
-          files: ./crossplane-provider-hydra-${{ env.VERSION }}.xpkg
+          files: _output/*.xpkg
