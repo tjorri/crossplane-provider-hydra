@@ -260,7 +260,7 @@ This project uses [semantic versioning](https://semver.org/) with [release-pleas
 **How it works:**
 
 1. Merge PRs with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:` for breaking changes)
-2. Release-please automatically opens a Release PR that bumps the version and updates `CHANGELOG.md`
+2. Release-please automatically opens a Release PR that bumps the version and updates `CHANGELOG.md`. Dependabot titles Go module and Docker base image bumps (including security updates) `fix(deps): ...`, so merging one also opens or updates the Release PR; GitHub Actions bumps stay `chore(deps): ...` and don't trigger a release
 3. Merge the Release PR — release-please creates the git tag and GitHub Release
 4. The tag triggers the publish workflow, which builds and pushes all artifacts
 
