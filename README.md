@@ -47,6 +47,8 @@ Wait for the provider to become healthy:
 kubectl get providers.pkg.crossplane.io provider-hydra
 ```
 
+The package is published for `linux/amd64` and `linux/arm64`; each node pulls the controller for its own architecture. If you pin `spec.package` by digest, use the digest of the tag (the multi-arch index), not of a single platform's manifest — a platform digest forces that architecture on every node.
+
 ### Install from source
 
 To build and load the provider into a local cluster (e.g. Kind):
@@ -71,6 +73,8 @@ metadata:
 spec:
   package: crossplane-provider-hydra:local
 ```
+
+`make xpkg-build` packages the controller for your machine's architecture. To build the per-platform packages the release publishes, run `make xpkg-build-multiarch` (output in `_output/`).
 
 ### Install CRDs only (standalone / development)
 
@@ -271,10 +275,10 @@ The publish workflow will:
 
 1. Run lint and unit tests
 2. Generate CRDs
-3. Build and push the controller image to `ghcr.io/tjorri/crossplane-provider-hydra-controller:<tag>`
-4. Build the Crossplane package (xpkg)
-5. Push the xpkg to `ghcr.io/tjorri/crossplane-provider-hydra:<tag>`
-6. Attach the xpkg to the GitHub Release
+3. Build and push the multi-arch controller image to `ghcr.io/tjorri/crossplane-provider-hydra-controller:<tag>`
+4. Build one Crossplane package (xpkg) per platform (`linux/amd64`, `linux/arm64`)
+5. Push them to `ghcr.io/tjorri/crossplane-provider-hydra:<tag>` as a single multi-arch image index
+6. Attach the per-platform xpkgs to the GitHub Release
 
 **Setup:** Release-please requires a `RELEASE_TOKEN` repository secret containing a Personal Access Token with `contents:write` and `pull-requests:write` scopes.
 
@@ -282,8 +286,8 @@ The publish workflow will:
 
 | Image | Purpose |
 |---|---|
-| `ghcr.io/tjorri/crossplane-provider-hydra:<tag>` | Crossplane package (xpkg) with the controller embedded as a runtime layer. This is what users reference in `spec.package`; no additional pull is required. |
-| `ghcr.io/tjorri/crossplane-provider-hydra-controller:<tag>` | Controller image. Published for transparency and for out-of-cluster dev workflows; installing the provider via the xpkg above is enough — you do not need to reference this image directly. |
+| `ghcr.io/tjorri/crossplane-provider-hydra:<tag>` | Multi-arch (`linux/amd64`, `linux/arm64`) Crossplane package (xpkg) with the controller embedded as a runtime layer. This is what users reference in `spec.package`; no additional pull is required. |
+| `ghcr.io/tjorri/crossplane-provider-hydra-controller:<tag>` | Multi-arch controller image. Published for transparency and for out-of-cluster dev workflows; installing the provider via the xpkg above is enough — you do not need to reference this image directly. |
 
 ## License
 
