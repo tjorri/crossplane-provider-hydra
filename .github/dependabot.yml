@@ -9,6 +9,14 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Go modules end up in the shipped controller binary, so title their
+    # PRs `fix(deps): ...`. release-please treats `fix` as releasable and
+    # opens (or updates) a release PR once one is merged. Its default,
+    # `chore(deps): ...`, is hidden from the changelog and never triggers a
+    # release. Security updates use this same setting.
+    commit-message:
+      prefix: "fix"
+      include: "scope"
     groups:
       kubernetes:
         patterns:
@@ -16,10 +24,30 @@ updates:
           - "sigs.k8s.io/controller-runtime"
           - "github.com/crossplane/crossplane-runtime/*"
 
+  # The Dockerfile's base images are pinned by digest. Dependabot bumps the
+  # digest when a tag is rebuilt (e.g. a Go patch release or a Debian
+  # security update) and the tag when a newer version exists. Both end up in
+  # the shipped controller, so these are releasable like Go modules.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "fix"
+      include: "scope"
+    groups:
+      base-images:
+        patterns:
+          - "*"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    # Actions only affect CI, not what ships, so keep these non-releasable.
+    commit-message:
+      prefix: "chore"
+      include: "scope"
     groups:
       actions:
         patterns:
