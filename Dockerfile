@@ -13,7 +13,7 @@
 # `docker buildx` would otherwise run the build stage under QEMU user-mode
 # emulation once per target arch, which slows a `go build` by ~9×. Go's
 # native cross-compile support via GOOS/GOARCH runs at full native speed.
-FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:eb61c3873c97416fff0116553fff65d67a3549f72e11d9758849a689cdd8b523 AS build
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -23,6 +23,6 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /provider ./cmd/provider/
 
-FROM gcr.io/distroless/static-debian13:nonroot@sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:aafe993665bf6200db38a02c11a9351e782a84b6a45e7f33b6695638c88e3931
 COPY --from=build /provider /usr/local/bin/provider
 ENTRYPOINT ["provider"]
